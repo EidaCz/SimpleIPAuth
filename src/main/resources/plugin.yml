@@ -1,0 +1,20 @@
+name: SimpleIPAuth
+author: Eida.cz
+description: Stores IP of players for authentication.
+main: cz.eida.minecraft.sipauth.SimpleIPAuth
+version: 1.0
+api-version: 1.16
+commands:
+  sipauth:
+    description: SimpleIPAuth commands
+    usage: '/<command> [reload|list|add|remove]'
+permissions:
+  sipauth.bypass:
+    description: Bypass the IP check.
+    default: false
+  sipauth.reload:
+    description: Reload SimpleIPAuth logins and configuration.
+    default: op
+  sipauth.manage:
+    description: Manage all players.
+    default: op
