@@ -17,6 +17,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.UUID;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -76,43 +77,68 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
             sender = (Player) sender;
         }
 
-        // reload - OP only
+        // reload
         if(args[0].equalsIgnoreCase("reload")) {
             if (sender.hasPermission("sipauth.reload")) {
 
                 reloadConfig();
 
-                logger.info("Configuration and player networks reloaded.");
+                logger.info("Messages and player networks reloaded.");
 
-                if(sender instanceof Player) {
+                if (sender instanceof Player) {
                     sender.sendMessage(ChatColor.GREEN + messages.getString("reloaded"));
                 }
+
+                //return true;
             } else {
-                if(sender instanceof Player) {
+
+                logger.info("Cannot reload: insufficient permissions.");
+
+                if (sender instanceof Player) {
                     sender.sendMessage(ChatColor.RED + messages.getString("notpermitted"));
                 }
-                logger.info("");
             }
+
+            return true;
         }
 
         // list
         if(args[0].equalsIgnoreCase("list")) {
 
-            Player infoPlayer = (Player) sender;
+            if (args.length == 1 && !(sender instanceof Player)) {
+                logger.info("Console usage: /sipauth list <player>");
+                return true;
+            }
 
-            if (args.length > 1 && sender.hasPermission("sipauth.manage")) {
-                infoPlayer = getServer().getPlayer(args[1]);
+            Player infoPlayer;
 
-                if (infoPlayer == null) {
-                    sender.sendMessage(ChatColor.RED + messages.getString("notfound"));
-                    return false;
+            if (args.length > 1) {
+
+                if (sender.hasPermission("sipauth.manage")) {
+
+                    // online player
+                    infoPlayer = getServer().getPlayer(args[1]);
+
+                    // TODO offline player
+
+                    if (infoPlayer == null) {
+                        if (sender instanceof Player) {
+                            sender.sendMessage(ChatColor.RED + messages.getString("notfound"));
+                        } else {
+                            logger.info("Player " + args[1] + " not found.");
+                        }
+                        return true;
+                    }
+
+                } else {
+                    if (sender instanceof Player) {
+                        sender.sendMessage(ChatColor.RED + messages.getString("notpermitted"));
+                    }
+                    return true;
                 }
-
             } else {
-                if (sender instanceof Player) {
-                    sender.sendMessage(ChatColor.RED + messages.getString("notpermitted"));
-                }
-                return false;
+                // self
+                infoPlayer = (Player) sender;
             }
 
             StringBuilder netBuilder = new StringBuilder();
@@ -125,19 +151,11 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
                 }
             }
 
-            //String[] playerNetworks = getPlayerNetworks(infoPlayer);
-
-            /*
-            int i;
-            for (i = 0; i < playerNetworks.length; i++) {
-                netBuilder.append(playerNetworks[i]);
-
-                if (i < (playerNetworks.length - 1)) {
-                    netBuilder.append(", ");
-                }
-            }*/
-
-            sender.sendMessage(messages.getString("networks") + " pro " + infoPlayer.getName() + ": " + netBuilder.toString());
+            if (sender instanceof Player) {
+                sender.sendMessage(messages.getString("networks") + " " + infoPlayer.getName() + ": " + netBuilder.toString());
+            } else {
+                logger.info("Allowed networks for " + infoPlayer.getName() + ": " + netBuilder.toString());
+            }
 
             return true;
         }
@@ -145,29 +163,56 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
         // add/remove
         if(args[0].equalsIgnoreCase("add") || args[0].equalsIgnoreCase("remove")) {
 
-            Player managePlayer = (Player) sender;
+            if (args.length < 2) {
+                logger.info("Console usage: /sipauth (add | remove) <network> <player>");
+                return false;
+            }
 
-            if (args.length > 2 && sender.hasPermission("sipauth.manage")) {
-                managePlayer = getServer().getPlayer(args[2]);
+            if (args.length == 2 && !(sender instanceof Player)) {
+                logger.info("Console usage: /sipauth (add | remove) <network> <player>");
+                return true;
+            }
 
-                if (managePlayer == null) {
-                    sender.sendMessage(ChatColor.RED + messages.getString("notfound"));
-                    return false;
+            Player managePlayer;
+
+            if (args.length == 3) {
+
+                if (sender.hasPermission("sipauth.manage")) {
+
+                    // online player
+                    managePlayer = getServer().getPlayer(args[2]);
+
+                    // TODO offline player
+
+                    if (managePlayer == null) {
+                        if (sender instanceof Player) {
+                            sender.sendMessage(ChatColor.RED + messages.getString("notfound"));
+                        } else {
+                            logger.info("Player " + args[2] + " not found.");
+                        }
+                        return true;
+                    }
+
+                } else {
+                    if (sender instanceof Player) {
+                        sender.sendMessage(ChatColor.RED + messages.getString("notpermitted"));
+                    }
+                    return true;
                 }
 
             } else {
-                if (sender instanceof Player) {
-                    sender.sendMessage(ChatColor.RED + messages.getString("notpermitted"));
-                }
-                return false;
+                // self
+                managePlayer = (Player) sender;
             }
 
             // address format invalid
             if (!IPv4Matcher.isValid(args[1])) {
                 if (sender instanceof Player) {
                     sender.sendMessage(ChatColor.RED + messages.getString("invalid"));
+                } else {
+                    logger.info("Address format invalid.");
                 }
-                return false;
+                return true;
             }
 
             // add
@@ -181,13 +226,16 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
                 removePlayerNetwork(managePlayer, args[1]);
                 return true;
             }
-
-            return false;
         }
 
         return false;
     }
 
+    /**
+     * Login event.
+     *
+     * @param event login event
+     */
     @EventHandler(priority = EventPriority.HIGHEST)
     public void authNetwork(PlayerLoginEvent event) {
 
@@ -226,8 +274,8 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
     /**
      * Create new player entry.
      *
-     * @param player   Player
-     * @param newtorks Initial networks
+     * @param player player
+     * @param newtorks initial networks
      */
     private void createPlayerEntry(Player player, List<String> newtorks) {
         playerLogins.set(player.getUniqueId() + ".name", player.getName());
@@ -235,69 +283,66 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
     }
 
     /**
-     * Read player saved networks.
+     * Read player allowed networks.
      *
-     * @param player Player
+     * @param player player
      * @return allowed networks
      */
     private List<String> getPlayerNetworks(Player player) {
-
-        /*
-        List<String> list = playerLogins.getStringList(player.getUniqueId() + ".networks");
-
-        String[] result = new String[list.size()];
-        int i;
-        for (i = 0; i < list.size(); i++) {
-            result[i] = list.get(i);
-        }*/
         return playerLogins.getStringList(player.getUniqueId() + ".networks");
     }
 
+    /**
+     * TODO offline player by UUID
+     *
+     * @param offlinePlayer
+     * @return
+     */
+    private List<String> getPlayerNetworks(UUID offlinePlayer) {
+        if (playerLogins.getString(offlinePlayer.toString()+ ".name").length() != 0) {
+            return playerLogins.getStringList(offlinePlayer.toString() + ".networks");
+        }
+
+        return null;
+    }
+
+    /**
+     * Set allowed networks for player.
+     *
+     * @param player player instance
+     * @param networks list of allowed networks
+     */
     private void setPlayerNetworks(Player player, List<String> networks) {
         playerLogins.set(player.getUniqueId() + ".networks", networks.toArray());
         savePlayerLogins();
+        reloadPlayerLogins();
     }
 
+    /**
+     * Add new network to allowed.
+     *
+     * @param player player instance
+     * @param network network to add
+     */
     private void addPlayerNetwork(Player player, String network) {
         ArrayList<String> networks = new ArrayList<>(getPlayerNetworks(player));
         networks.add(network);
         setPlayerNetworks(player, networks);
-        /*
-        String[] currentNetworks = getPlayerNetworks(player);
-        String[] newNetworks = new String[currentNetworks.length + 1];
-
-        int i;
-        for (i = 0; i < currentNetworks.length; i++) {
-            newNetworks[i] = currentNetworks[i];
-        }
-        currentNetworks[i + 1] = network;
-
-        setPlayerNetworks(player, newNetworks);
-        */
     }
 
+    /**
+     * Remove network from allowed.
+     *
+     * @param player player instance
+     * @param network network to remove
+     */
     private void removePlayerNetwork(Player player, String network) {
         ArrayList<String> networks = new ArrayList<>(getPlayerNetworks(player));
-        networks.remove(network);
-        setPlayerNetworks(player, networks);
-        /*
-        String[] currentNetworks = getPlayerNetworks(player);
-        ArrayList<String> newNetworks = new ArrayList<>();
-        for (String net : currentNetworks) {
-            if (net.equals(network)) {
-                continue;
-            }
-            newNetworks.add(net);
-        }
 
-        String[] reducedNetworks = new String[newNetworks.size()];
-        int i;
-        for (i = 0; i < reducedNetworks.length; i++) {
-            reducedNetworks[i] = newNetworks.get(i);
+        if (networks.contains(network)) {
+            networks.remove(network);
+            setPlayerNetworks(player, networks);
         }
-
-        setPlayerNetworks(player, reducedNetworks);
-        */
     }
 
     /**
@@ -318,6 +363,9 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
         playerLogins = YamlConfiguration.loadConfiguration(playerLoginFile);
     }
 
+    /**
+     * Copy resources.
+     */
     private void initialize() {
         this.getDataFolder().mkdirs();
         this.saveResource(messagesFile.getName(), true);
