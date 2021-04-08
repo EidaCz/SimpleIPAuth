@@ -1,5 +1,7 @@
 package cz.eida.minecraft.sipauth;
 
+import java.util.List;
+
 /**
  * Simple IPv4 address/network matcher.
  */
@@ -56,6 +58,19 @@ public class IPv4Matcher {
      * @return IP belongs to some of given network
      */
     public boolean matchAny(String[] ipNets) {
+        for (String cidr : ipNets) {
+            if (match(cidr)) return true;
+        }
+        return false;
+    }
+
+    /**
+     * Matches IP with given networks.
+     *
+     * @param ipNets array of networks in CIDR format A.B.C.D/M
+     * @return IP belongs to some of given network
+     */
+    public boolean matchAny(List<String> ipNets) {
         for (String cidr : ipNets) {
             if (match(cidr)) return true;
         }
