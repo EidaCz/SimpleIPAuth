@@ -1,11 +1,11 @@
 package cz.eida.minecraft.sipauth;
 
-import org.bukkit.*;
+import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
-import org.bukkit.entity.*;
+import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -14,7 +14,9 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -107,15 +109,25 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
                 }
 
             } else {
-                if(sender instanceof Player) {
+                if (sender instanceof Player) {
                     sender.sendMessage(ChatColor.RED + messages.getString("notpermitted"));
                 }
                 return false;
             }
 
             StringBuilder netBuilder = new StringBuilder();
-            String[] playerNetworks = getPlayerNetworks(infoPlayer);
+            Iterator<String> networkIterator = getPlayerNetworks(infoPlayer).iterator();
+            while (networkIterator.hasNext()) {
+                netBuilder.append(networkIterator.next());
 
+                if (networkIterator.hasNext()) {
+                    netBuilder.append(", ");
+                }
+            }
+
+            //String[] playerNetworks = getPlayerNetworks(infoPlayer);
+
+            /*
             int i;
             for (i = 0; i < playerNetworks.length; i++) {
                 netBuilder.append(playerNetworks[i]);
@@ -123,7 +135,7 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
                 if (i < (playerNetworks.length - 1)) {
                     netBuilder.append(", ");
                 }
-            }
+            }*/
 
             sender.sendMessage(messages.getString("networks") + " pro " + infoPlayer.getName() + ": " + netBuilder.toString());
 
@@ -177,11 +189,10 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
-    public void checkPlayerIP(PlayerLoginEvent event) {
+    public void authNetwork(PlayerLoginEvent event) {
 
         Player player = event.getPlayer();
         String playerName = player.getName();
-        UUID playerUUID = player.getUniqueId();
         String loginIP = event.getAddress().getHostAddress();
 
         if (player.hasPermission("sipauth.bypass")) {
@@ -189,19 +200,24 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
             return;
         }
 
-        String[] playerIPdata = new String[]{};
-        try {
-            playerIPdata = getPlayerNetworks(player);
-        } catch (Exception ex) {
-            createPlayerEntry(player, new String[]{loginIP + "/32"});
-            logger.info("Allowing new player " + playerName + " (" + loginIP + "/32)." );
+        List<String> playerNetworks = getPlayerNetworks(player);
+
+        logger.info("Data: " + playerNetworks.toString() + ", tj. size = " + playerNetworks.size());
+
+        if (playerNetworks.size() > 0) {
+            playerNetworks = getPlayerNetworks(player);
+        } else {
+            playerNetworks = new ArrayList<>();
+            playerNetworks.add(loginIP + "/32");
+            createPlayerEntry(player, playerNetworks);
+            logger.info("Allowing new player " + playerName + " (" + loginIP + "/32).");
             return;
         }
 
-        IPv4Matcher ipmatcher = new IPv4Matcher(loginIP);
+        IPv4Matcher ipMatcher = new IPv4Matcher(loginIP);
 
-        if (ipmatcher.matchAny(playerIPdata)) {
-            logger.info("Allowing " + playerName + " (" + loginIP + "/32)." );
+        if (ipMatcher.matchAny(playerNetworks)) {
+            logger.info("Allowing " + playerName + " (" + loginIP + "/32).");
         } else {
             event.disallow(PlayerLoginEvent.Result.KICK_OTHER, messages.getString("notallowed"));
         }
@@ -210,10 +226,10 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
     /**
      * Create new player entry.
      *
-     * @param player Player
+     * @param player   Player
      * @param newtorks Initial networks
      */
-    private void createPlayerEntry(Player player, String[] newtorks) {
+    private void createPlayerEntry(Player player, List<String> newtorks) {
         playerLogins.set(player.getUniqueId() + ".name", player.getName());
         setPlayerNetworks(player, newtorks);
     }
@@ -224,25 +240,29 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
      * @param player Player
      * @return allowed networks
      */
-    private String[] getPlayerNetworks(Player player) {
+    private List<String> getPlayerNetworks(Player player) {
 
+        /*
         List<String> list = playerLogins.getStringList(player.getUniqueId() + ".networks");
 
         String[] result = new String[list.size()];
         int i;
         for (i = 0; i < list.size(); i++) {
             result[i] = list.get(i);
-        }
-
-        return result;
+        }*/
+        return playerLogins.getStringList(player.getUniqueId() + ".networks");
     }
 
-    private void setPlayerNetworks(Player player, String[] networks) {
-        playerLogins.set(player.getUniqueId() + ".networks", networks);
+    private void setPlayerNetworks(Player player, List<String> networks) {
+        playerLogins.set(player.getUniqueId() + ".networks", networks.toArray());
         savePlayerLogins();
     }
 
     private void addPlayerNetwork(Player player, String network) {
+        ArrayList<String> networks = new ArrayList<>(getPlayerNetworks(player));
+        networks.add(network);
+        setPlayerNetworks(player, networks);
+        /*
         String[] currentNetworks = getPlayerNetworks(player);
         String[] newNetworks = new String[currentNetworks.length + 1];
 
@@ -253,9 +273,14 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
         currentNetworks[i + 1] = network;
 
         setPlayerNetworks(player, newNetworks);
+        */
     }
 
     private void removePlayerNetwork(Player player, String network) {
+        ArrayList<String> networks = new ArrayList<>(getPlayerNetworks(player));
+        networks.remove(network);
+        setPlayerNetworks(player, networks);
+        /*
         String[] currentNetworks = getPlayerNetworks(player);
         ArrayList<String> newNetworks = new ArrayList<>();
         for (String net : currentNetworks) {
@@ -272,6 +297,7 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
         }
 
         setPlayerNetworks(player, reducedNetworks);
+        */
     }
 
     /**
