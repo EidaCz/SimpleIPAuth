@@ -67,7 +67,7 @@ public class IPv4Matcher {
     /**
      * Matches IP with given networks.
      *
-     * @param ipNets array of networks in CIDR format A.B.C.D/M
+     * @param ipNets list of networks in CIDR format A.B.C.D/M
      * @return IP belongs to some of given network
      */
     public boolean matchAny(List<String> ipNets) {
