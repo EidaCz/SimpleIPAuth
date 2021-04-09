@@ -250,8 +250,6 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
 
         List<String> playerNetworks = getPlayerNetworks(player);
 
-        logger.info("Data: " + playerNetworks.toString() + ", tj. size = " + playerNetworks.size());
-
         if (playerNetworks.size() > 0) {
             playerNetworks = getPlayerNetworks(player);
         } else {
