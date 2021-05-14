@@ -1,5 +1,6 @@
 package cz.eida.minecraft.sipauth;
 
+import cz.eida.minecraft.sipauth.ipmatcher.IPMatcher;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
@@ -206,7 +207,7 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
             }
 
             // address format invalid
-            if (!IPv4Matcher.isValid(args[1])) {
+            if (!IPMatcher.isValid(args[1])) {
                 if (sender instanceof Player) {
                     sender.sendMessage(ChatColor.RED + messages.getString("invalid"));
                 } else {
@@ -250,20 +251,20 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
 
         List<String> playerNetworks = getPlayerNetworks(player);
 
+        IPMatcher ipMatcher = new IPMatcher(loginIP);
+
         if (playerNetworks.size() > 0) {
             playerNetworks = getPlayerNetworks(player);
         } else {
             playerNetworks = new ArrayList<>();
-            playerNetworks.add(loginIP + "/32");
+            playerNetworks.add(loginIP + "/" + ipMatcher.getSingleHostMask());
             createPlayerEntry(player, playerNetworks);
-            logger.info("Allowing new player " + playerName + " (" + loginIP + "/32).");
+            logger.info("Allowing new player " + playerName + " (" + loginIP + "/" + ipMatcher.getSingleHostMask() + ").");
             return;
         }
 
-        IPv4Matcher ipMatcher = new IPv4Matcher(loginIP);
-
         if (ipMatcher.matchAny(playerNetworks)) {
-            logger.info("Allowing " + playerName + " (" + loginIP + "/32).");
+            logger.info("Allowing " + playerName + " (" + loginIP + "/" + ipMatcher.getSingleHostMask() + ").");
         } else {
             event.disallow(PlayerLoginEvent.Result.KICK_OTHER, messages.getString("notallowed"));
         }
