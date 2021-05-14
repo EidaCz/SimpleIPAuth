@@ -8,6 +8,13 @@ import java.util.List;
 public interface IIPMatcher {
 
     /**
+     * Single host mask.
+     *
+     * @return (/ 32, / 128)
+     */
+    String getSingleHostMask();
+
+    /**
      * Matches current address with given network address.
      *
      * @param network network address in valid format
