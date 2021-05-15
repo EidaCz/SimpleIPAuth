@@ -50,6 +50,8 @@ public class TestIP {
         assertFalse(ipv6Matcher.match("a000::/5"));
         assertFalse(ipv6Matcher.match("abcd:0200::/23"));
         assertFalse(ipv6Matcher.match("abcd:0100:000a:0000:0000:0000:0000:00d2/128"));
+
+        assertTrue(ipv6Matcher.matchAny(new String[]{"::1", "fe80:1a1b:2c2d::/64", "abcd:100:a::d1/128"}));
     }
 
     @Test
@@ -60,7 +62,13 @@ public class TestIP {
         ipv6Matcher = new IPv6Matcher("fc00:0::10:100");
         assertEquals("fc00::10:100", ipv6Matcher.toString(true));
 
-        // TODO isValid()
+        assertTrue(IPv6Matcher.isValid("fe00:100::/64"));
+        assertTrue(IPv6Matcher.isValid("0:0:0:0:0:0:0:1/128"));
+        assertTrue(IPv6Matcher.isValid("2001:db8:123:abcd::12/99"));
+        assertTrue(IPv6Matcher.isValid("2001:db8:123:abcd::/99"));
+        assertFalse(IPv6Matcher.isValid("127.0.0.1/32"));
+        assertFalse(IPv6Matcher.isValid("fe80:932::x11"));
+        assertFalse(IPv6Matcher.isValid("8:8:8:8:8:8:8:8:8"));
     }
 
     @Test
