@@ -134,6 +134,10 @@ public class IPv6Matcher implements IIPMatcher {
     @Override
     public boolean match(String network) {
 
+        if (!isValid(network)) {
+            return false;
+        }
+
         char[] base = parseBase(network);
         char[] prefix = parsePrefix(network);
 

@@ -55,6 +55,10 @@ public class IPv4Matcher implements IIPMatcher {
     @Override
     public boolean match(String ipNet) {
 
+        if (!isValid(ipNet)) {
+            return false;
+        }
+
         try {
             long mask = 0xFFFFFFFFL << (32 - Integer.parseInt(ipNet.split("\\/")[1]));
             long base = 0x00000000L;
