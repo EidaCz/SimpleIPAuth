@@ -10,7 +10,7 @@ public class IPv6Matcher implements IIPMatcher {
     /**
      * IPv6 address
      */
-    private int[] ip6;
+    private char[] ip6;
 
     /**
      * Converts host IPv6 address to numeric array.
@@ -27,9 +27,9 @@ public class IPv6Matcher implements IIPMatcher {
      * @param ipString IPv6 address
      * @return array of numeric hextets
      */
-    private static int[] parseBase(String ipString) {
+    private static char[] parseBase(String ipString) {
 
-        int[] base = {
+        char[] base = {
                 0x0000, 0x0000, 0x0000, 0x0000,
                 0x0000, 0x0000, 0x0000, 0x0000
         };
@@ -48,7 +48,7 @@ public class IPv6Matcher implements IIPMatcher {
                 base[i] = 0x0;
                 break;
             } else {
-                base[i] = Integer.parseInt(splitIP[i], 16);
+                base[i] = (char) (Integer.parseInt(splitIP[i], 16) & 0x0000FFFF);
             }
         }
 
@@ -60,7 +60,7 @@ public class IPv6Matcher implements IIPMatcher {
                     break;
                 }
 
-                base[7 - r] = Integer.parseInt(splitIP[(splitIP.length - 1) - r], 16);
+                base[7 - r] = (char) (Integer.parseInt(splitIP[(splitIP.length - 1) - r], 16) & 0x0000FFFF);
             }
         }
 
@@ -73,9 +73,9 @@ public class IPv6Matcher implements IIPMatcher {
      * @param ipString IPv6 address
      * @return array of prefix mask hextets
      */
-    private static int[] parsePrefix(String ipString) {
+    private static char[] parsePrefix(String ipString) {
 
-        int[] prefixmask = new int[]{
+        char[] prefixmask = new char[]{
                 0x0, 0x0, 0x0, 0x0,
                 0x0, 0x0, 0x0, 0x0
         };
@@ -87,17 +87,17 @@ public class IPv6Matcher implements IIPMatcher {
             int hextetsPartial = bits % 16;
 
             if (hextetsPartial != 0) {
-                prefixmask[hextetsFull] = ((0xFFFF) << (16 - hextetsPartial)) & 0xFFFF0000;
+                prefixmask[hextetsFull] = (char) ((0xFFFF) << (16 - hextetsPartial));
             }
 
             int i;
             for (i = 0; i < hextetsFull; i++) {
-                prefixmask[0] = 0xFFFF;
+                prefixmask[i] = 0xFFFF;
             }
 
         } else {
             // no mask; assume /128 - single host
-            prefixmask = new int[]{
+            prefixmask = new char[]{
                     0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,
                     0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF
             };
@@ -129,8 +129,8 @@ public class IPv6Matcher implements IIPMatcher {
     @Override
     public boolean match(String network) {
 
-        int[] base = parseBase(network);
-        int[] prefix = parsePrefix(network);
+        char[] base = parseBase(network);
+        char[] prefix = parsePrefix(network);
 
         int i;
         for (i = 0; i < 8; i++) {
@@ -180,16 +180,21 @@ public class IPv6Matcher implements IIPMatcher {
         return toString(false);
     }
 
-    // TODO 🦤 compress zeros to ::
+    /**
+     * Print current IPv6 in full or compressed form.
+     *
+     * @param compressed compressed form
+     * @return IPv6 address
+     */
     public String toString(boolean compressed) {
         StringBuilder sb = new StringBuilder();
 
         int i;
         for (i = 0; i < 8; i++) {
-            sb.append(String.format("%04x", this.ip6[i]));
+            sb.append(String.format(compressed ? "%x" : "%04x", (int) this.ip6[i]));
             sb.append((i < 7) ? ":" : "");
         }
 
-        return sb.toString();
+        return compressed ? sb.toString().replaceAll(":0", ":").replaceAll("\\::+", "::") : sb.toString();
     }
 }

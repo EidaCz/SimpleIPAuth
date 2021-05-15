@@ -5,8 +5,7 @@ import cz.eida.minecraft.sipauth.ipmatcher.IPv4Matcher;
 import cz.eida.minecraft.sipauth.ipmatcher.IPv6Matcher;
 import org.junit.Test;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 public class TestIP {
 
@@ -45,14 +44,23 @@ public class TestIP {
         assertTrue(ipv6Matcher.match("abcd:100:a::/64"));
         assertTrue(ipv6Matcher.match("abcd:100:a::d1/128"));
         assertTrue(ipv6Matcher.match("abcd:0100:000a:0000:0000:0000:0000:00d1/128"));
-        assertTrue(ipv6Matcher.match("a000::/8"));
+        assertTrue(ipv6Matcher.match("a000::/4"));
         assertTrue(ipv6Matcher.match("a001::/1"));
         assertFalse(ipv6Matcher.match("cafe::/64"));
+        assertFalse(ipv6Matcher.match("a000::/5"));
+        assertFalse(ipv6Matcher.match("abcd:0200::/23"));
+        assertFalse(ipv6Matcher.match("abcd:0100:000a:0000:0000:0000:0000:00d2/128"));
     }
 
     @Test
     public void ipv6Parse() {
-        // TODO
+        IPv6Matcher ipv6Matcher = new IPv6Matcher("abcd:100:a::d1");
+        assertEquals("abcd:100:a::d1", ipv6Matcher.toString(true));
+
+        ipv6Matcher = new IPv6Matcher("fc00:0::10:100");
+        assertEquals("fc00::10:100", ipv6Matcher.toString(true));
+
+        // TODO isValid()
     }
 
     @Test
