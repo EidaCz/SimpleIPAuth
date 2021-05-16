@@ -11,12 +11,12 @@
     <packaging>jar</packaging>
 
     <name>SimpleIPAuth</name>
-    <description>Simple IPv4 network authenticator for Bukkit.</description>
+    <description>Simple IP/network authenticator for Spigot/Paper.</description>
     <inceptionYear>2020</inceptionYear>
     <url>https://github.com/EidaCz/SimpleIPAuth</url>
 
     <build>
-        <finalName>SimpleIPAuth</finalName>
+        <finalName>${project.name}</finalName>
 
         <plugins>
             <plugin>
@@ -39,7 +39,7 @@
                         <manifest>
                             <addClasspath>true</addClasspath>
                             <classpathPrefix>lib/</classpathPrefix>
-                            <mainClass>cz.eida.minecraft.sipauth.SimpleIPAuth</mainClass>
+                            <mainClass>${plugin.mainClass}</mainClass>
                         </manifest>
                         <manifestEntries>
                             <Built-By>${user.name}</Built-By>
@@ -73,6 +73,9 @@
     </build>
 
     <properties>
+        <plugin.author>Eida.cz</plugin.author>
+        <plugin.api-version>1.16</plugin.api-version>
+        <plugin.mainClass>cz.eida.minecraft.sipauth.SimpleIPAuth</plugin.mainClass>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
