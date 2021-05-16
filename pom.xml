@@ -6,7 +6,7 @@
 
     <groupId>cz.eida.minecraft</groupId>
     <artifactId>SimpleIPAuth</artifactId>
-    <version>1.0</version>
+    <version>1.1</version>
 
     <packaging>jar</packaging>
 
@@ -19,7 +19,6 @@
         <finalName>SimpleIPAuth</finalName>
 
         <plugins>
-
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-assembly-plugin</artifactId>
@@ -62,9 +61,14 @@
                     <target>1.8</target>
                 </configuration>
             </plugin>
-
-
         </plugins>
+
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>true</filtering>
+            </resource>
+        </resources>
 
     </build>
 

@@ -2,7 +2,7 @@ name: SimpleIPAuth
 author: Eida.cz
 description: Stores IP of players for authentication.
 main: cz.eida.minecraft.sipauth.SimpleIPAuth
-version: 1.0
+version: ${project.version}
 api-version: 1.16
 commands:
   sipauth:
