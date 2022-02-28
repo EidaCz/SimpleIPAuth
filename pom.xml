@@ -6,7 +6,7 @@
 
     <groupId>cz.eida.minecraft</groupId>
     <artifactId>SimpleIPAuth</artifactId>
-    <version>1.1</version>
+    <version>1.2</version>
 
     <packaging>jar</packaging>
 
@@ -95,6 +95,12 @@
             <artifactId>spigot-api</artifactId>
             <version>1.16.3-R0.1-SNAPSHOT</version>
             <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.json</groupId>
+            <artifactId>json</artifactId>
+            <version>20211205</version>
         </dependency>
 
         <dependency>
