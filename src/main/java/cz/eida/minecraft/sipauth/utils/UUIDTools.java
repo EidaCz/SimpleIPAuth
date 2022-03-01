@@ -42,7 +42,6 @@ public class UUIDTools {
         UUID result;
         String apiURL = "https://api.mojang.com/users/profiles/minecraft/" + nickName;
 
-        //try {
             InputStream isJSON = new URL(apiURL).openStream();
             BufferedReader rdJSON = new BufferedReader(new InputStreamReader(isJSON, StandardCharsets.UTF_8));
 
