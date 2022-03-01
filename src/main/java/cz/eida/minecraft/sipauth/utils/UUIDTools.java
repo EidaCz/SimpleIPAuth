@@ -42,22 +42,22 @@ public class UUIDTools {
         UUID result;
         String apiURL = "https://api.mojang.com/users/profiles/minecraft/" + nickName;
 
-        //try {
-            InputStream isJSON = new URL(apiURL).openStream();
-            BufferedReader rdJSON = new BufferedReader(new InputStreamReader(isJSON, StandardCharsets.UTF_8));
+        InputStream isJSON = new URL(apiURL).openStream();
+        BufferedReader rdJSON = new BufferedReader(new InputStreamReader(isJSON, StandardCharsets.UTF_8));
 
-            StringBuilder sbJSON = new StringBuilder();
-            int cnt;
-            while ((cnt = rdJSON.read()) != -1) {
-                sbJSON.append((char) cnt);
-            }
+        StringBuilder sbJSON = new StringBuilder();
+        int cnt;
+        while ((cnt = rdJSON.read()) != -1) {
+            sbJSON.append((char) cnt);
+        }
 
-            JSONObject json = new JSONObject(sbJSON.toString());
-            isJSON.close();
+        JSONObject json = new JSONObject(sbJSON.toString());
+        isJSON.close();
 
-            String uuidString = json.getString("id");
+        String uuidString = json.getString("id");
 
-            result = UUID.fromString(UUID_FULL.matcher(uuidString.replace("-", "")).replaceAll("$1-$2-$3-$4-$5"));
+        result = UUID.fromString(UUID_FULL.matcher(uuidString.replace("-", "")).replaceAll("$1-$2-$3-$4-$5"));
+
         return result;
     }
 }
