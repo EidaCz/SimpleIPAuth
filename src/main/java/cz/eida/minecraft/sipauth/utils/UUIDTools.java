@@ -38,7 +38,6 @@ public class UUIDTools {
      * @return online UUID of player
      */
     public static UUID getOnlineModePlayerUUID(String nickName) throws IOException {
-
         UUID result;
         String apiURL = "https://api.mojang.com/users/profiles/minecraft/" + nickName;
 
