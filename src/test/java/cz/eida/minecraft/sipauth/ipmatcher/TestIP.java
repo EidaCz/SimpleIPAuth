@@ -1,8 +1,5 @@
-package cz.eida.minecraft;
+package cz.eida.minecraft.sipauth.ipmatcher;
 
-import cz.eida.minecraft.sipauth.ipmatcher.IPMatcher;
-import cz.eida.minecraft.sipauth.ipmatcher.IPv4Matcher;
-import cz.eida.minecraft.sipauth.ipmatcher.IPv6Matcher;
 import org.junit.Test;
 
 import static org.junit.Assert.*;
