@@ -58,11 +58,6 @@ public class UUIDTools {
             String uuidString = json.getString("id");
 
             result = UUID.fromString(UUID_FULL.matcher(uuidString.replace("-", "")).replaceAll("$1-$2-$3-$4-$5"));
-
-        /*} catch (Exception e) {
-            // TODO catch
-        }*/
-
         return result;
     }
 }
