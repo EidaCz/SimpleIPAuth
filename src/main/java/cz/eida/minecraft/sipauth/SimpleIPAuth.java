@@ -16,15 +16,14 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
+ * Simple IP Auth plugin - KonAuth project.
  *
+ * @author Eida_cz
  */
 public class SimpleIPAuth extends JavaPlugin implements Listener {
 
@@ -75,16 +74,12 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
             return false;
         }
 
-        if (sender instanceof Player) {
-            sender = (Player) sender;
-        }
-
         // reload
         if(args[0].equalsIgnoreCase("reload")) {
+
             if (sender.hasPermission("sipauth.reload")) {
 
                 reloadConfig();
-
                 logger.info("Messages and player networks reloaded.");
 
                 if (sender instanceof Player) {
@@ -126,7 +121,12 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
                         UUID offlinePlayerUUID;
 
                         if (this.getServer().getOnlineMode()) {
-                            offlinePlayerUUID = UUIDTools.getOnlineModePlayerUUID(args[1]);
+                            try {
+                                offlinePlayerUUID = UUIDTools.getOnlineModePlayerUUID(args[1]);
+                            } catch (IOException e) {
+                                logger.severe("Cannot fetch UUID: " + e.getLocalizedMessage());
+                                return false;
+                            }
                         } else {
                             offlinePlayerUUID = UUIDTools.getOfflineModePlayerUUID(args[1]);
                         }
@@ -143,13 +143,13 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
                     return true;
                 }
             } else {
-                // self
+                // sender self
                 infoPlayer = (Player) sender;
                 infoPlayerUUID = ((Player) sender).getUniqueId();
             }
 
             StringBuilder netBuilder = new StringBuilder();
-            Iterator<String> networkIterator = getPlayerNetworks(infoPlayerUUID).iterator();
+            Iterator<String> networkIterator = Objects.requireNonNull(getPlayerNetworks(infoPlayerUUID)).iterator();
             while (networkIterator.hasNext()) {
                 netBuilder.append(networkIterator.next());
 
@@ -159,19 +159,16 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
             }
 
             if (netBuilder.length() == 0) {
-
                 if (sender instanceof Player) {
                     sender.sendMessage(messages.getString("nonets") + " " + ((infoPlayer != null) ? infoPlayer.getName() : args[1]) + ".");
                 } else {
                     logger.info("No networks defined for player " + ((infoPlayer != null) ? infoPlayer.getName() : args[1]) + ".");
                 }
-
             } else {
-
                 if (sender instanceof Player) {
-                    sender.sendMessage(messages.getString("networks") + " " + ((infoPlayer != null) ? infoPlayer.getName() : args[1]) + ": " + netBuilder.toString());
+                    sender.sendMessage(messages.getString("networks") + " " + ((infoPlayer != null) ? infoPlayer.getName() : args[1]) + ": " + netBuilder);
                 } else {
-                    logger.info("Allowed networks for " + ((infoPlayer != null) ? infoPlayer.getName() : args[1]) + ": " + netBuilder.toString());
+                    logger.info("Allowed networks for " + ((infoPlayer != null) ? infoPlayer.getName() : args[1]) + ": " + netBuilder);
                 }
             }
 
@@ -179,7 +176,7 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
         }
 
         // add/remove
-        if(args[0].equalsIgnoreCase("add") || args[0].equalsIgnoreCase("remove")) {
+        if (args[0].equalsIgnoreCase("add") || args[0].equalsIgnoreCase("remove")) {
 
             if (args.length < 2) {
                 logger.info("Console usage: /sipauth (add | remove) <network> <player>");
@@ -191,31 +188,14 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
                 return true;
             }
 
-            Player managePlayer;
-            UUID managePlayerUUID;
+            Player managedPlayer;
 
+            // manage other player
             if (args.length == 3) {
 
                 if (sender.hasPermission("sipauth.manage")) {
-
                     // online player
-                    managePlayer = getServer().getPlayer(args[2]);
-
-                    // offline player
-                    if (managePlayer == null) {
-                        UUID offlinePlayerUUID;
-
-                        if (this.getServer().getOnlineMode()) {
-                            offlinePlayerUUID = UUIDTools.getOnlineModePlayerUUID(args[2]);
-                        } else {
-                            offlinePlayerUUID = UUIDTools.getOfflineModePlayerUUID(args[2]);
-                        }
-
-                        managePlayerUUID = this.getServer().getOfflinePlayer(offlinePlayerUUID).getUniqueId();
-                    } else {
-                        managePlayerUUID = managePlayer.getUniqueId();
-                    }
-
+                    managedPlayer = getServer().getPlayer(args[2]);
                 } else {
                     if (sender instanceof Player) {
                         sender.sendMessage(ChatColor.RED + messages.getString("notpermitted"));
@@ -225,8 +205,7 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
 
             } else {
                 // self
-                managePlayer = (Player) sender;
-                managePlayerUUID = ((Player) sender).getUniqueId();
+                managedPlayer = (Player) sender;
             }
 
             // address format invalid
@@ -241,16 +220,22 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
 
             // add
             if (args[0].equalsIgnoreCase("add")) {
-                if (managePlayer == null) {
-                    addOfflinePlayerNetwork(args[2], args[1]);
+                if (managedPlayer == null) {
+                    try {
+                        addOfflinePlayerNetwork(args[2], args[1]);
+                    } catch (IOException e) {
+                        logger.severe("Cannot fetch UUID: " + e.getLocalizedMessage());
+                        return false;
+                    }
                 } else {
-                    addPlayerNetwork(managePlayer, args[1]);
+                    // self
+                    addPlayerNetwork(managedPlayer, args[1]);
                 }
 
                 if (sender instanceof Player) {
-                    sender.sendMessage(messages.getString("added") + " " + args[1] + " " + messages.getString("added_s") + " " + ((managePlayer != null) ? managePlayer.getName() : args[2]) + ".");
+                    sender.sendMessage(messages.getString("added") + " " + args[1] + " " + messages.getString("added_s") + " " + ((managedPlayer != null) ? managedPlayer.getName() : args[2]) + ".");
                 } else {
-                    logger.info("Added network " + args[1] + " to player " + ((managePlayer != null) ? managePlayer.getName() : args[2]) + " list.");
+                    logger.info("Added network " + args[1] + " to player " + ((managedPlayer != null) ? managedPlayer.getName() : args[2]) + " list.");
                 }
 
                 return true;
@@ -258,16 +243,22 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
 
             // remove
             if (args[0].equalsIgnoreCase("remove")) {
-                if (managePlayer == null) {
-                    removeOfflinePlayerNetwork(args[2], args[1]);
+                if (managedPlayer == null) {
+                    try {
+                        removeOfflinePlayerNetwork(args[2], args[1]);
+                    } catch (IOException e) {
+                        logger.severe("Cannot fetch UUID: " + e.getLocalizedMessage());
+                        return false;
+                    }
                 } else {
-                    removePlayerNetwork(managePlayer, args[1]);
+                    // self
+                    removePlayerNetwork(managedPlayer, args[1]);
                 }
 
                 if (sender instanceof Player) {
-                    sender.sendMessage(messages.getString("removed") + " " + args[1] + " " + messages.getString("removed_s") + " " + ((managePlayer != null) ? managePlayer.getName() : args[2]) + ".");
+                    sender.sendMessage(messages.getString("removed") + " " + args[1] + " " + messages.getString("removed_s") + " " + ((managedPlayer != null) ? managedPlayer.getName() : args[2]) + ".");
                 } else {
-                    logger.info("Removed network " + args[1] + " from player " + ((managePlayer != null) ? managePlayer.getName() : args[2]) + " list.");
+                    logger.info("Removed network " + args[1] + " from player " + ((managedPlayer != null) ? managedPlayer.getName() : args[2]) + " list.");
                 }
 
                 return true;
@@ -311,7 +302,7 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
         if (ipMatcher.matchAny(playerNetworks)) {
             logger.info("Allowing " + playerName + " (" + loginIP + "/" + ipMatcher.getSingleHostMask() + ").");
         } else {
-            event.disallow(PlayerLoginEvent.Result.KICK_OTHER, messages.getString("notallowed"));
+            event.disallow(PlayerLoginEvent.Result.KICK_OTHER, Objects.requireNonNull(messages.getString("notallowed")));
         }
     }
 
@@ -333,8 +324,8 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
      * @param offlineNickname offline player nickname
      * @param networks initial networks
      */
-    private void createOfflinePlayerEntry(String offlineNickname, List<String> networks) {
-        playerLogins.set(((this.getServer().getOnlineMode()) ? UUIDTools.getOnlineModePlayerUUID(offlineNickname) : UUIDTools.getOfflineModePlayerUUID(offlineNickname)).toString() + ".name", offlineNickname);
+    private void createOfflinePlayerEntry(String offlineNickname, List<String> networks) throws IOException {
+        playerLogins.set(((this.getServer().getOnlineMode()) ? UUIDTools.getOnlineModePlayerUUID(offlineNickname) : UUIDTools.getOfflineModePlayerUUID(offlineNickname)) + ".name", offlineNickname);
         setOfflinePlayerNetworks(offlineNickname, networks);
     }
 
@@ -351,7 +342,7 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
     /**
      * Read offline player networks.
      *
-     * @param offlinePlayer
+     * @param offlinePlayer UUID of an offline player
      * @return defined networks
      */
     private List<String> getPlayerNetworks(UUID offlinePlayer) {
@@ -360,8 +351,8 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
             return new ArrayList<>();
         }
 
-        if (playerLogins.getString(offlinePlayer.toString() + ".name").length() != 0) {
-            return playerLogins.getStringList(offlinePlayer.toString() + ".networks");
+        if (Objects.requireNonNull(playerLogins.getString(offlinePlayer + ".name")).length() != 0) {
+            return playerLogins.getStringList(offlinePlayer + ".networks");
         }
 
         return null;
@@ -386,8 +377,8 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
      * @param offlineNickname offline player nickname
      * @param networks list of allowed networks
      */
-    private void setOfflinePlayerNetworks(String offlineNickname, List<String> networks) {
-        playerLogins.set(((this.getServer().getOnlineMode()) ? UUIDTools.getOnlineModePlayerUUID(offlineNickname) : UUIDTools.getOfflineModePlayerUUID(offlineNickname)).toString() + ".networks", networks.toArray());
+    private void setOfflinePlayerNetworks(String offlineNickname, List<String> networks) throws IOException {
+        playerLogins.set(((this.getServer().getOnlineMode()) ? UUIDTools.getOnlineModePlayerUUID(offlineNickname) : UUIDTools.getOfflineModePlayerUUID(offlineNickname)) + ".networks", networks.toArray());
         savePlayerLogins();
         reloadPlayerLogins();
     }
@@ -411,9 +402,9 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
      * @param offlineNickname offline player nickname
      * @param network network to add
      */
-    private void addOfflinePlayerNetwork(String offlineNickname, String network) {
+    private void addOfflinePlayerNetwork(String offlineNickname, String network) throws IOException {
         UUID offlinePlayerUUID = (this.getServer().getOnlineMode()) ? UUIDTools.getOnlineModePlayerUUID(offlineNickname) : UUIDTools.getOfflineModePlayerUUID(offlineNickname);
-        ArrayList<String> networks = new ArrayList<>(getPlayerNetworks(offlinePlayerUUID));
+        ArrayList<String> networks = new ArrayList<>(Objects.requireNonNull(getPlayerNetworks(offlinePlayerUUID)));
 
         // create initial network
         if (networks.size() == 0) {
@@ -451,9 +442,9 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
      * @param offlineNickname offline player nickname
      * @param network network to remove
      */
-    private void removeOfflinePlayerNetwork(String offlineNickname, String network) {
+    private void removeOfflinePlayerNetwork(String offlineNickname, String network) throws IOException {
         UUID offlinePlayerUUID = (this.getServer().getOnlineMode()) ? UUIDTools.getOnlineModePlayerUUID(offlineNickname) : UUIDTools.getOfflineModePlayerUUID(offlineNickname);
-        ArrayList<String> networks = new ArrayList<>(getPlayerNetworks(offlinePlayerUUID));
+        ArrayList<String> networks = new ArrayList<>(Objects.requireNonNull(getPlayerNetworks(offlinePlayerUUID)));
 
         // no networks
         if (networks.size() == 0) {
