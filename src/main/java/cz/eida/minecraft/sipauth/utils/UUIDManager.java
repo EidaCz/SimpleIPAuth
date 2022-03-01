@@ -145,4 +145,23 @@ public class UUIDManager {
         String uuidString = this.cachedUUIDs.getString(nickName);
         return (uuidString != null) ? UUID.fromString(Objects.requireNonNull(this.cachedUUIDs.getString(nickName))) : null;
     }
+
+    /**
+     * Delete and recreate cache file.
+     *
+     * @throws IOException I/O error
+     */
+    public void clearCache() throws IOException {
+        this.cacheFile = new File(this.plugin.getDataFolder(), "uuid-cache.yml");
+
+        if (cacheFile.exists()) {
+            this.cacheFile.delete();
+        }
+
+        this.cacheFile = new File(this.plugin.getDataFolder(), "uuid-cache.yml");
+
+        if (!cacheFile.exists()) {
+            this.cacheFile.createNewFile();
+        }
+    }
 }

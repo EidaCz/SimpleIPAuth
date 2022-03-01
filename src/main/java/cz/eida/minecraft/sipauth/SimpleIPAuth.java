@@ -112,8 +112,36 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
             return true;
         }
 
+        // clearcache
+        if (args[0].equalsIgnoreCase("clearcache")) {
+            if (sender.hasPermission("sipauth.reload")) {
+
+                try {
+                    uuidManager.clearCache();
+                } catch (IOException e) {
+                    logger.severe("Cannot clear cache: " + e.getLocalizedMessage());
+                    return true;
+                }
+                logger.info("UUID cache cleared.");
+
+                if (sender instanceof Player) {
+                    sender.sendMessage(ChatColor.GREEN + messages.getString("cachecleared"));
+                }
+
+            } else {
+
+                logger.info("Cannot clear cache: insufficient permissions.");
+
+                if (sender instanceof Player) {
+                    sender.sendMessage(ChatColor.RED + messages.getString("notpermitted"));
+                }
+            }
+
+            return true;
+        }
+
         // list
-        if(args[0].equalsIgnoreCase("list")) {
+        if (args[0].equalsIgnoreCase("list")) {
 
             if (args.length == 1 && !(sender instanceof Player)) {
                 logger.info("Console usage: /sipauth list <player>");
