@@ -1,7 +1,7 @@
 package cz.eida.minecraft.sipauth;
 
 import cz.eida.minecraft.sipauth.ipmatcher.IPMatcher;
-import cz.eida.minecraft.sipauth.utils.UUIDTools;
+import cz.eida.minecraft.sipauth.utils.UUIDManager;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
@@ -23,7 +23,7 @@ import java.util.logging.Logger;
 /**
  * Simple IP Auth plugin - KonAuth project.
  *
- * @author Eida_cz
+ * @author EidaCz
  */
 public class SimpleIPAuth extends JavaPlugin implements Listener {
 
@@ -33,6 +33,8 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
     FileConfiguration playerLogins;
     FileConfiguration messages;
 
+    UUIDManager uuidManager;
+
     Logger logger;
 
     @Override
@@ -40,6 +42,12 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
 
         if (!this.getDataFolder().exists()) {
             this.initialize();
+        }
+
+        try {
+            this.uuidManager = new UUIDManager(this);
+        } catch (IOException e) {
+            logger.severe("Cannot create UUID cache.");
         }
 
         logger = this.getLogger();
@@ -61,6 +69,12 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
         this.messages = YamlConfiguration.loadConfiguration(messagesFile);
         this.playerLoginFile = new File(this.getDataFolder(), "players.yml");
         reloadPlayerLogins();
+
+        try {
+            this.uuidManager.reloadCache();
+        } catch (IOException e) {
+            logger.severe("Cannot load UUID cache file.");
+        }
     }
 
     @Override
@@ -107,7 +121,7 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
             }
 
             Player infoPlayer;
-            UUID infoPlayerUUID;
+            UUID infoPlayerUUID = null;
 
             if (args.length > 1) {
 
@@ -118,22 +132,12 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
 
                     // offline player
                     if (infoPlayer == null) {
-                        UUID offlinePlayerUUID;
-
-                        if (this.getServer().getOnlineMode()) {
-                            try {
-                                offlinePlayerUUID = UUIDTools.getOnlineModePlayerUUID(args[1]);
-                            } catch (IOException e) {
-                                logger.severe("Cannot fetch UUID: " + e.getLocalizedMessage());
-                                return false;
-                            }
-                        } else {
-                            offlinePlayerUUID = UUIDTools.getOfflineModePlayerUUID(args[1]);
+                        try {
+                            infoPlayerUUID = uuidManager.getOfflinePlayerUUID(args[1]);
+                        } catch (Exception e) {
+                            logger.severe("Cannot fetch UUID: " + e.getLocalizedMessage());
+                            return true;
                         }
-
-                        infoPlayerUUID = this.getServer().getOfflinePlayer(offlinePlayerUUID).getUniqueId();
-                    } else {
-                        infoPlayerUUID = infoPlayer.getUniqueId();
                     }
 
                 } else {
@@ -225,7 +229,7 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
                         addOfflinePlayerNetwork(args[2], args[1]);
                     } catch (IOException e) {
                         logger.severe("Cannot fetch UUID: " + e.getLocalizedMessage());
-                        return false;
+                        return true;
                     }
                 } else {
                     // self
@@ -248,7 +252,7 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
                         removeOfflinePlayerNetwork(args[2], args[1]);
                     } catch (IOException e) {
                         logger.severe("Cannot fetch UUID: " + e.getLocalizedMessage());
-                        return false;
+                        return true;
                     }
                 } else {
                     // self
@@ -325,7 +329,7 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
      * @param networks initial networks
      */
     private void createOfflinePlayerEntry(String offlineNickname, List<String> networks) throws IOException {
-        playerLogins.set(((this.getServer().getOnlineMode()) ? UUIDTools.getOnlineModePlayerUUID(offlineNickname) : UUIDTools.getOfflineModePlayerUUID(offlineNickname)) + ".name", offlineNickname);
+        playerLogins.set(uuidManager.getOfflinePlayerUUID(offlineNickname) + ".name", offlineNickname);
         setOfflinePlayerNetworks(offlineNickname, networks);
     }
 
@@ -378,7 +382,7 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
      * @param networks list of allowed networks
      */
     private void setOfflinePlayerNetworks(String offlineNickname, List<String> networks) throws IOException {
-        playerLogins.set(((this.getServer().getOnlineMode()) ? UUIDTools.getOnlineModePlayerUUID(offlineNickname) : UUIDTools.getOfflineModePlayerUUID(offlineNickname)) + ".networks", networks.toArray());
+        playerLogins.set(uuidManager.getOfflinePlayerUUID(offlineNickname) + ".networks", networks.toArray());
         savePlayerLogins();
         reloadPlayerLogins();
     }
@@ -403,7 +407,7 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
      * @param network network to add
      */
     private void addOfflinePlayerNetwork(String offlineNickname, String network) throws IOException {
-        UUID offlinePlayerUUID = (this.getServer().getOnlineMode()) ? UUIDTools.getOnlineModePlayerUUID(offlineNickname) : UUIDTools.getOfflineModePlayerUUID(offlineNickname);
+        UUID offlinePlayerUUID = uuidManager.getOfflinePlayerUUID(offlineNickname);
         ArrayList<String> networks = new ArrayList<>(Objects.requireNonNull(getPlayerNetworks(offlinePlayerUUID)));
 
         // create initial network
@@ -443,7 +447,7 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
      * @param network network to remove
      */
     private void removeOfflinePlayerNetwork(String offlineNickname, String network) throws IOException {
-        UUID offlinePlayerUUID = (this.getServer().getOnlineMode()) ? UUIDTools.getOnlineModePlayerUUID(offlineNickname) : UUIDTools.getOfflineModePlayerUUID(offlineNickname);
+        UUID offlinePlayerUUID = uuidManager.getOfflinePlayerUUID(offlineNickname);
         ArrayList<String> networks = new ArrayList<>(Objects.requireNonNull(getPlayerNetworks(offlinePlayerUUID)));
 
         // no networks
