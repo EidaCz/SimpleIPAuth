@@ -13,6 +13,11 @@ public class IPv4Matcher implements IIPMatcher {
     private long ip = 0x00000000L;
 
     /**
+     * Input IPv4 address
+     */
+    private String inputIP;
+
+    /**
      * Converts IPv4 address string to long.
      *
      * @param ipString single IPv4 in A.B.C.D format.
@@ -25,6 +30,8 @@ public class IPv4Matcher implements IIPMatcher {
         for (i = 0; i < 4; i++) {
             this.ip += Long.parseLong(splitIP[i]) << (24 - (8 * i));
         }
+
+        this.inputIP = ipString;
     }
 
     /**
@@ -44,6 +51,15 @@ public class IPv4Matcher implements IIPMatcher {
      */
     public String getSingleHostMask() {
         return "32";
+    }
+
+    /**
+     * Sanitized IPv4.
+     *
+     * @return sanitized IPv4 string with single host mask
+     */
+    public String getSanitizedAddress() {
+        return (isValid(this.inputIP)) ? this.inputIP + "/" + getSingleHostMask() : "0.0.0.0/32";
     }
 
     /**

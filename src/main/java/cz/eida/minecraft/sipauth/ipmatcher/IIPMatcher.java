@@ -15,6 +15,13 @@ public interface IIPMatcher {
     String getSingleHostMask();
 
     /**
+     * Sanitized single host IP address.
+     *
+     * @return sanitized IP address with single host mask
+     */
+    String getSanitizedAddress();
+
+    /**
      * Matches current address with given network address.
      *
      * @param network network address in valid format

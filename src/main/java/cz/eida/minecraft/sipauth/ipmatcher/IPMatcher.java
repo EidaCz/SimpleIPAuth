@@ -56,6 +56,11 @@ public class IPMatcher implements IIPMatcher {
         return instance.getSingleHostMask();
     }
 
+    @Override
+    public String getSanitizedAddress() {
+        return instance.getSanitizedAddress();
+    }
+
     /**
      * Matches current address with given network address.
      *

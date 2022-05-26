@@ -10,7 +10,12 @@ public class IPv6Matcher implements IIPMatcher {
     /**
      * IPv6 address
      */
-    private char[] ip6;
+    final private char[] ip6;
+
+    /**
+     * IPv6 string
+     */
+    final private String ipv6string;
 
     /**
      * Converts host IPv6 address to numeric array.
@@ -18,6 +23,7 @@ public class IPv6Matcher implements IIPMatcher {
      * @param ipString IPv6 host address in valid format.
      */
     public IPv6Matcher(String ipString) {
+        this.ipv6string = (ipString.contains("%")) ? ipString.split("%")[0] : ipString;
         this.ip6 = parseBase(ipString);
     }
 
@@ -28,6 +34,10 @@ public class IPv6Matcher implements IIPMatcher {
      * @return array of numeric hextets
      */
     private static char[] parseBase(String ipString) {
+
+        if (ipString.contains("%")) {
+            ipString = ipString.split("%")[0];
+        }
 
         char[] base = {
                 0x0000, 0x0000, 0x0000, 0x0000,
@@ -123,6 +133,15 @@ public class IPv6Matcher implements IIPMatcher {
      */
     public String getSingleHostMask() {
         return "128";
+    }
+
+    /**
+     * Sanitized IPv6 string.
+     *
+     * @return sanitized IPv6 String with single host prefix
+     */
+    public String getSanitizedAddress() {
+        return (isValid(this.ipv6string)) ? this.ipv6string + "/" + getSingleHostMask() : "::0/128";
     }
 
     /**

@@ -52,6 +52,16 @@ public class TestIP {
     }
 
     @Test
+    public void ipv6InterfaceMatch() {
+
+        IPv6Matcher ipv6Matcher = new IPv6Matcher("abcd:100:a::d1%0");
+
+        assertTrue(ipv6Matcher.match("::/0"));
+        assertTrue(ipv6Matcher.match("abcd:100:a::/64"));
+        assertTrue(ipv6Matcher.match("abcd:100:a::d1/128"));
+    }
+
+    @Test
     public void ipv6Parse() {
         IPv6Matcher ipv6Matcher = new IPv6Matcher("abcd:100:a::d1");
         assertEquals("abcd:100:a::d1", ipv6Matcher.toString(true));

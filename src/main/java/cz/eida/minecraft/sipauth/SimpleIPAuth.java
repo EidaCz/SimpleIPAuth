@@ -325,14 +325,14 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
             playerNetworks = getPlayerNetworks(player);
         } else {
             playerNetworks = new ArrayList<>();
-            playerNetworks.add(loginIP + "/" + ipMatcher.getSingleHostMask());
+            playerNetworks.add(ipMatcher.getSanitizedAddress());
             createPlayerEntry(player, playerNetworks);
-            logger.info("Allowing new player " + playerName + " (" + loginIP + "/" + ipMatcher.getSingleHostMask() + ").");
+            logger.info("Allowing new player " + playerName + " (" + ipMatcher.getSanitizedAddress() + ").");
             return;
         }
 
         if (ipMatcher.matchAny(playerNetworks)) {
-            logger.info("Allowing " + playerName + " (" + loginIP + "/" + ipMatcher.getSingleHostMask() + ").");
+            logger.info("Allowing " + playerName + " (" + ipMatcher.getSanitizedAddress() + ").");
         } else {
             event.disallow(PlayerLoginEvent.Result.KICK_OTHER, Objects.requireNonNull(messages.getString("notallowed")));
         }
