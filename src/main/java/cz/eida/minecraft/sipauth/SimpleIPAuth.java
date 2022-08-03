@@ -149,7 +149,7 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
             }
 
             Player infoPlayer;
-            UUID infoPlayerUUID = null;
+            UUID infoPlayerUUID;
 
             if (args.length > 1) {
 
@@ -158,8 +158,10 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
                     // online player
                     infoPlayer = getServer().getPlayer(args[1]);
 
-                    // offline player
-                    if (infoPlayer == null) {
+                    if (infoPlayer != null) {
+                        infoPlayerUUID = infoPlayer.getUniqueId();
+                    } else {
+                        // offline player
                         try {
                             infoPlayerUUID = uuidManager.getOfflinePlayerUUID(args[1]);
                         } catch (Exception e) {
