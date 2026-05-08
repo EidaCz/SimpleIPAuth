@@ -7,11 +7,8 @@ api-version: ${plugin.api-version}
 commands:
   sipauth:
     description: SimpleIPAuth commands
-    usage: '/<command> [ list | add | remove | reload | clearcache ]'
+    usage: '/<command> [ list | add | remove | bypass | unbypass | reload | clearcache ]'
 permissions:
-  sipauth.bypass:
-    description: Bypass the IP check.
-    default: false
   sipauth.reload:
     description: Reload SimpleIPAuth logins and configuration.
     default: op

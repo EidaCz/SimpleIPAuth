@@ -5,7 +5,7 @@ import org.bukkit.plugin.Plugin;
 import org.json.JSONObject;
 
 import java.io.*;
-import java.net.URL;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 import java.util.UUID;
@@ -41,7 +41,7 @@ public class UUIDManager {
 
         String apiURL = "https://api.mojang.com/users/profiles/minecraft/" + nickName;
 
-        InputStream isJSON = new URL(apiURL).openStream();
+        InputStream isJSON = URI.create(apiURL).toURL().openStream();
         BufferedReader rdJSON = new BufferedReader(new InputStreamReader(isJSON, StandardCharsets.UTF_8));
 
         StringBuilder sbJSON = new StringBuilder();

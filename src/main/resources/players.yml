@@ -1,0 +1,19 @@
+# Example configuration.
+#
+# Missing player entry means default IP bypass. On first login, SimpleIPAuth
+# creates an entry with both wildcard networks:
+#
+# 3434d50d-df4f-44fc-8ef4-aac0433388d2:
+#   name: RegularPlayer
+#   networks:
+#     - 0.0.0.0/0
+#     - ::/0
+#
+# To protect an account, remove the bypass networks and add only allowed VPN
+# networks or single-host addresses:
+#
+# dc1c46e7-8c4d-3676-bc94-fc4aaf0595ce:
+#   name: OperatorPlayer
+#   networks:
+#     - 10.8.0.0/24
+#     - fc00:1234::/64

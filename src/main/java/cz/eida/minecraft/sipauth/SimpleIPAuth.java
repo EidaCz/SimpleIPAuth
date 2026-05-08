@@ -1,8 +1,14 @@
 package cz.eida.minecraft.sipauth;
 
+import com.destroystokyo.paper.profile.PlayerProfile;
 import cz.eida.minecraft.sipauth.ipmatcher.IPMatcher;
 import cz.eida.minecraft.sipauth.utils.UUIDManager;
-import org.bukkit.ChatColor;
+import io.papermc.paper.connection.PlayerConfigurationConnection;
+import io.papermc.paper.connection.PlayerConnection;
+import io.papermc.paper.connection.PlayerLoginConnection;
+import io.papermc.paper.event.connection.PlayerConnectionValidateLoginEvent;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -11,11 +17,12 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.player.PlayerLoginEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -27,6 +34,8 @@ import java.util.logging.Logger;
  */
 public class SimpleIPAuth extends JavaPlugin implements Listener {
 
+    private static final List<String> BYPASS_NETWORKS = Arrays.asList("0.0.0.0/0", "::/0");
+
     File messagesFile = new File(this.getDataFolder(), "messages.yml");
     File playerLoginFile;
 
@@ -36,9 +45,11 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
     UUIDManager uuidManager;
 
     Logger logger;
+    private final Object playerLoginLock = new Object();
 
     @Override
     public void onEnable() {
+        logger = this.getLogger();
 
         if (!this.getDataFolder().exists()) {
             this.initialize();
@@ -50,7 +61,6 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
             logger.severe("Cannot create UUID cache.");
         }
 
-        logger = this.getLogger();
         this.getServer().getPluginManager().registerEvents(this, this);
 
         reloadConfig();
@@ -70,10 +80,12 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
         this.playerLoginFile = new File(this.getDataFolder(), "players.yml");
         reloadPlayerLogins();
 
-        try {
-            this.uuidManager.reloadCache();
-        } catch (IOException e) {
-            logger.severe("Cannot load UUID cache file.");
+        if (this.uuidManager != null) {
+            try {
+                this.uuidManager.reloadCache();
+            } catch (IOException e) {
+                logger.severe("Cannot load UUID cache file.");
+            }
         }
     }
 
@@ -97,7 +109,7 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
                 logger.info("Messages and player networks reloaded.");
 
                 if (sender instanceof Player) {
-                    sender.sendMessage(ChatColor.GREEN + messages.getString("reloaded"));
+                    sendMessage(sender, messages.getString("reloaded"), NamedTextColor.GREEN);
                 }
 
             } else {
@@ -105,7 +117,7 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
                 logger.info("Cannot reload: insufficient permissions.");
 
                 if (sender instanceof Player) {
-                    sender.sendMessage(ChatColor.RED + messages.getString("notpermitted"));
+                    sendMessage(sender, messages.getString("notpermitted"), NamedTextColor.RED);
                 }
             }
 
@@ -125,7 +137,7 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
                 logger.info("UUID cache cleared.");
 
                 if (sender instanceof Player) {
-                    sender.sendMessage(ChatColor.GREEN + messages.getString("cachecleared"));
+                    sendMessage(sender, messages.getString("cachecleared"), NamedTextColor.GREEN);
                 }
 
             } else {
@@ -133,7 +145,7 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
                 logger.info("Cannot clear cache: insufficient permissions.");
 
                 if (sender instanceof Player) {
-                    sender.sendMessage(ChatColor.RED + messages.getString("notpermitted"));
+                    sendMessage(sender, messages.getString("notpermitted"), NamedTextColor.RED);
                 }
             }
 
@@ -172,7 +184,7 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
 
                 } else {
                     if (sender instanceof Player) {
-                        sender.sendMessage(ChatColor.RED + messages.getString("notpermitted"));
+                        sendMessage(sender, messages.getString("notpermitted"), NamedTextColor.RED);
                     }
                     return true;
                 }
@@ -209,6 +221,58 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
             return true;
         }
 
+        // bypass/unbypass
+        if (args[0].equalsIgnoreCase("bypass") || args[0].equalsIgnoreCase("unbypass")) {
+
+            if (args.length == 1 && !(sender instanceof Player)) {
+                logger.info("Console usage: /sipauth (bypass | unbypass) <player>");
+                return true;
+            }
+
+            if (args.length > 2) {
+                logger.info("Usage: /sipauth (bypass | unbypass) [player]");
+                return false;
+            }
+
+            Player managedPlayer;
+
+            if (args.length == 2) {
+                if (sender.hasPermission("sipauth.manage")) {
+                    managedPlayer = getServer().getPlayer(args[1]);
+                } else {
+                    if (sender instanceof Player) {
+                        sendMessage(sender, messages.getString("notpermitted"), NamedTextColor.RED);
+                    }
+                    return true;
+                }
+            } else {
+                managedPlayer = (Player) sender;
+            }
+
+            boolean bypassEnabled = args[0].equalsIgnoreCase("bypass");
+            String managedPlayerName = (managedPlayer != null) ? managedPlayer.getName() : args[1];
+
+            try {
+                if (managedPlayer == null) {
+                    setOfflinePlayerBypass(managedPlayerName, bypassEnabled);
+                } else {
+                    setPlayerBypass(managedPlayer, bypassEnabled);
+                }
+            } catch (IOException e) {
+                logger.severe("Cannot fetch UUID: " + e.getLocalizedMessage());
+                return true;
+            }
+
+            String message = bypassEnabled ? messages.getString("bypassed") : messages.getString("unbypassed");
+            if (sender instanceof Player) {
+                sender.sendMessage(message + " " + managedPlayerName + ".");
+            } else {
+                logger.info(message + " " + managedPlayerName + ".");
+            }
+
+            return true;
+        }
+
         // add/remove
         if (args[0].equalsIgnoreCase("add") || args[0].equalsIgnoreCase("remove")) {
 
@@ -232,7 +296,7 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
                     managedPlayer = getServer().getPlayer(args[2]);
                 } else {
                     if (sender instanceof Player) {
-                        sender.sendMessage(ChatColor.RED + messages.getString("notpermitted"));
+                        sendMessage(sender, messages.getString("notpermitted"), NamedTextColor.RED);
                     }
                     return true;
                 }
@@ -245,7 +309,7 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
             // address format invalid
             if (!IPMatcher.isValid(args[1])) {
                 if (sender instanceof Player) {
-                    sender.sendMessage(ChatColor.RED + messages.getString("invalid"));
+                    sendMessage(sender, messages.getString("invalid"), NamedTextColor.RED);
                 } else {
                     logger.info("Address format invalid.");
                 }
@@ -303,52 +367,87 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
     }
 
     /**
-     * Login event.
+     * Login validation event.
      *
-     * @param event login event
+     * @param event connection validation event
      */
     @EventHandler(priority = EventPriority.HIGHEST)
-    public void authNetwork(PlayerLoginEvent event) {
+    public void authNetwork(PlayerConnectionValidateLoginEvent event) {
 
-        Player player = event.getPlayer();
-        String playerName = player.getName();
-        String loginIP = event.getAddress().getHostAddress();
-
-        if (player.hasPermission("sipauth.bypass")) {
-            logger.info("Allowing " + playerName + " (has bypass permission).");
+        if (!event.isAllowed()) {
             return;
         }
 
-        List<String> playerNetworks = getPlayerNetworks(player);
+        PlayerProfile profile = getProfile(event.getConnection());
+        if (profile == null || profile.getId() == null || profile.getName() == null) {
+            logger.warning("Denying login: missing authenticated player profile.");
+            event.kickMessage(Component.text(Objects.requireNonNull(messages.getString("notallowed"))));
+            return;
+        }
+
+        UUID playerUUID = profile.getId();
+        String playerName = profile.getName();
+        String loginIP = getClientAddress(event.getConnection());
+
+        if (!IPMatcher.isValid(loginIP)) {
+            logger.warning("Denying " + playerName + ": invalid client address " + loginIP + ".");
+            event.kickMessage(Component.text(Objects.requireNonNull(messages.getString("notallowed"))));
+            return;
+        }
 
         IPMatcher ipMatcher = new IPMatcher(loginIP);
 
-        if (playerNetworks.size() > 0) {
-            playerNetworks = getPlayerNetworks(player);
-        } else {
-            playerNetworks = new ArrayList<>();
-            playerNetworks.add(ipMatcher.getSanitizedAddress());
-            createPlayerEntry(player, playerNetworks);
-            logger.info("Allowing new player " + playerName + " (" + ipMatcher.getSanitizedAddress() + ").");
-            return;
+        synchronized (playerLoginLock) {
+            if (!hasPlayerEntry(playerUUID)) {
+                createPlayerEntry(playerUUID, playerName, new ArrayList<>(BYPASS_NETWORKS));
+                logger.info("Allowing new player " + playerName + " (default IP bypass).");
+                return;
+            }
+
+            List<String> playerNetworks = getPlayerNetworks(playerUUID);
+
+            if (ipMatcher.matchAny(playerNetworks)) {
+                logger.info("Allowing " + playerName + " (" + ipMatcher.getSanitizedAddress() + ").");
+            } else {
+                event.kickMessage(Component.text(Objects.requireNonNull(messages.getString("notallowed"))));
+            }
+        }
+    }
+
+    private PlayerProfile getProfile(PlayerConnection connection) {
+        if (connection instanceof PlayerConfigurationConnection) {
+            return ((PlayerConfigurationConnection) connection).getProfile();
         }
 
-        if (ipMatcher.matchAny(playerNetworks)) {
-            logger.info("Allowing " + playerName + " (" + ipMatcher.getSanitizedAddress() + ").");
-        } else {
-            event.disallow(PlayerLoginEvent.Result.KICK_OTHER, Objects.requireNonNull(messages.getString("notallowed")));
+        if (connection instanceof PlayerLoginConnection) {
+            PlayerLoginConnection loginConnection = (PlayerLoginConnection) connection;
+            PlayerProfile profile = loginConnection.getAuthenticatedProfile();
+            return (profile != null) ? profile : loginConnection.getUnsafeProfile();
         }
+
+        return null;
+    }
+
+    private String getClientAddress(PlayerConnection connection) {
+        InetSocketAddress clientAddress = connection.getClientAddress();
+        InetAddress address = clientAddress.getAddress();
+        return (address != null) ? address.getHostAddress() : clientAddress.getHostString();
+    }
+
+    private void sendMessage(CommandSender sender, String message, NamedTextColor color) {
+        sender.sendMessage(Component.text(Objects.requireNonNull(message), color));
     }
 
     /**
      * Create new player entry.
      *
-     * @param player player
+     * @param playerUUID player UUID
+     * @param playerName player name
      * @param newtorks initial networks
      */
-    private void createPlayerEntry(Player player, List<String> newtorks) {
-        playerLogins.set(player.getUniqueId() + ".name", player.getName());
-        setPlayerNetworks(player, newtorks);
+    private void createPlayerEntry(UUID playerUUID, String playerName, List<String> newtorks) {
+        playerLogins.set(playerUUID + ".name", playerName);
+        setPlayerNetworks(playerUUID, newtorks);
     }
 
     /**
@@ -370,7 +469,7 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
      * @return allowed networks
      */
     private List<String> getPlayerNetworks(Player player) {
-        return playerLogins.getStringList(player.getUniqueId() + ".networks");
+        return getPlayerNetworks(player.getUniqueId());
     }
 
     /**
@@ -381,15 +480,21 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
      */
     private List<String> getPlayerNetworks(UUID offlinePlayer) {
 
-        if (!playerLogins.contains(offlinePlayer.toString())) {
+        if (!hasPlayerEntry(offlinePlayer)) {
             return new ArrayList<>();
         }
 
-        if (Objects.requireNonNull(playerLogins.getString(offlinePlayer + ".name")).length() != 0) {
-            return playerLogins.getStringList(offlinePlayer + ".networks");
-        }
+        return playerLogins.getStringList(offlinePlayer + ".networks");
+    }
 
-        return null;
+    /**
+     * Check whether player has an explicit configuration entry.
+     *
+     * @param playerUUID player UUID
+     * @return player entry exists
+     */
+    private boolean hasPlayerEntry(UUID playerUUID) {
+        return playerLogins.contains(playerUUID.toString());
     }
 
     /**
@@ -399,7 +504,17 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
      * @param networks list of allowed networks
      */
     private void setPlayerNetworks(Player player, List<String> networks) {
-        playerLogins.set(player.getUniqueId() + ".networks", networks.toArray());
+        setPlayerNetworks(player.getUniqueId(), networks);
+    }
+
+    /**
+     * Set allowed networks for player.
+     *
+     * @param playerUUID player UUID
+     * @param networks list of allowed networks
+     */
+    private void setPlayerNetworks(UUID playerUUID, List<String> networks) {
+        playerLogins.set(playerUUID + ".networks", networks);
         savePlayerLogins();
         reloadPlayerLogins();
     }
@@ -412,7 +527,7 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
      * @param networks list of allowed networks
      */
     private void setOfflinePlayerNetworks(String offlineNickname, List<String> networks) throws IOException {
-        playerLogins.set(uuidManager.getOfflinePlayerUUID(offlineNickname) + ".networks", networks.toArray());
+        playerLogins.set(uuidManager.getOfflinePlayerUUID(offlineNickname) + ".networks", networks);
         savePlayerLogins();
         reloadPlayerLogins();
     }
@@ -424,9 +539,11 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
      * @param network network to add
      */
     private void addPlayerNetwork(Player player, String network) {
-        ArrayList<String> networks = new ArrayList<>(getPlayerNetworks(player));
-        networks.add(network);
-        setPlayerNetworks(player, networks);
+        synchronized (playerLoginLock) {
+            ArrayList<String> networks = new ArrayList<>(getPlayerNetworks(player));
+            networks.add(network);
+            setPlayerNetworks(player, networks);
+        }
     }
 
     /**
@@ -438,20 +555,71 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
      */
     private void addOfflinePlayerNetwork(String offlineNickname, String network) throws IOException {
         UUID offlinePlayerUUID = uuidManager.getOfflinePlayerUUID(offlineNickname);
-        ArrayList<String> networks = new ArrayList<>(Objects.requireNonNull(getPlayerNetworks(offlinePlayerUUID)));
+        synchronized (playerLoginLock) {
+            ArrayList<String> networks = new ArrayList<>(getPlayerNetworks(offlinePlayerUUID));
 
-        // create initial network
-        if (networks.size() == 0) {
-            ArrayList<String> newNetworks = new ArrayList<>();
-            newNetworks.add(network);
-            this.createOfflinePlayerEntry(offlineNickname, newNetworks);
+            // create initial network
+            if (networks.size() == 0) {
+                ArrayList<String> newNetworks = new ArrayList<>();
+                newNetworks.add(network);
+                this.createOfflinePlayerEntry(offlineNickname, newNetworks);
 
-            return;
+                return;
+            }
+
+            // add to existing
+            networks.add(network);
+            setOfflinePlayerNetworks(offlineNickname, networks);
         }
+    }
 
-        // add to existing
-        networks.add(network);
-        setOfflinePlayerNetworks(offlineNickname, networks);
+    /**
+     * Enable or disable full IP bypass for online player.
+     *
+     * @param player player instance
+     * @param enabled bypass enabled
+     */
+    private void setPlayerBypass(Player player, boolean enabled) {
+        synchronized (playerLoginLock) {
+            ArrayList<String> networks = new ArrayList<>(getPlayerNetworks(player));
+            setBypassNetworks(networks, enabled);
+            playerLogins.set(player.getUniqueId() + ".name", player.getName());
+            setPlayerNetworks(player, networks);
+        }
+    }
+
+    /**
+     * Enable or disable full IP bypass for offline player.
+     * Case-sensitive.
+     *
+     * @param offlineNickname offline player nickname
+     * @param enabled bypass enabled
+     */
+    private void setOfflinePlayerBypass(String offlineNickname, boolean enabled) throws IOException {
+        UUID offlinePlayerUUID = uuidManager.getOfflinePlayerUUID(offlineNickname);
+        synchronized (playerLoginLock) {
+            ArrayList<String> networks = new ArrayList<>(getPlayerNetworks(offlinePlayerUUID));
+
+            if (!enabled && !playerLogins.contains(offlinePlayerUUID.toString())) {
+                return;
+            }
+
+            setBypassNetworks(networks, enabled);
+            playerLogins.set(offlinePlayerUUID + ".name", offlineNickname);
+            setPlayerNetworks(offlinePlayerUUID, networks);
+        }
+    }
+
+    private void setBypassNetworks(List<String> networks, boolean enabled) {
+        if (enabled) {
+            for (String bypassNetwork : BYPASS_NETWORKS) {
+                if (!networks.contains(bypassNetwork)) {
+                    networks.add(bypassNetwork);
+                }
+            }
+        } else {
+            networks.removeAll(BYPASS_NETWORKS);
+        }
     }
 
     /**
@@ -461,11 +629,13 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
      * @param network network to remove
      */
     private void removePlayerNetwork(Player player, String network) {
-        ArrayList<String> networks = new ArrayList<>(getPlayerNetworks(player));
+        synchronized (playerLoginLock) {
+            ArrayList<String> networks = new ArrayList<>(getPlayerNetworks(player));
 
-        if (networks.contains(network)) {
-            networks.remove(network);
-            setPlayerNetworks(player, networks);
+            if (networks.contains(network)) {
+                networks.remove(network);
+                setPlayerNetworks(player, networks);
+            }
         }
     }
 
@@ -478,17 +648,19 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
      */
     private void removeOfflinePlayerNetwork(String offlineNickname, String network) throws IOException {
         UUID offlinePlayerUUID = uuidManager.getOfflinePlayerUUID(offlineNickname);
-        ArrayList<String> networks = new ArrayList<>(Objects.requireNonNull(getPlayerNetworks(offlinePlayerUUID)));
+        synchronized (playerLoginLock) {
+            ArrayList<String> networks = new ArrayList<>(getPlayerNetworks(offlinePlayerUUID));
 
-        // no networks
-        if (networks.size() == 0) {
-            return;
-        }
+            // no networks
+            if (networks.size() == 0) {
+                return;
+            }
 
-        // remove network
-        if (networks.contains(network)) {
-            networks.remove(network);
-            setOfflinePlayerNetworks(offlineNickname, networks);
+            // remove network
+            if (networks.contains(network)) {
+                networks.remove(network);
+                setOfflinePlayerNetworks(offlineNickname, networks);
+            }
         }
     }
 
@@ -499,7 +671,7 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
         try {
             playerLogins.save(playerLoginFile);
         } catch (IOException ex) {
-            logger.log(Level.SEVERE, "Unable to save player configuration.");
+            logger.log(Level.SEVERE, "Unable to save player configuration.", ex);
         }
     }
 
@@ -507,7 +679,9 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
      * Load player logins from file.
      */
     private void reloadPlayerLogins() {
-        playerLogins = YamlConfiguration.loadConfiguration(playerLoginFile);
+        synchronized (playerLoginLock) {
+            playerLogins = YamlConfiguration.loadConfiguration(playerLoginFile);
+        }
     }
 
     /**
@@ -516,6 +690,8 @@ public class SimpleIPAuth extends JavaPlugin implements Listener {
     private void initialize() {
         this.getDataFolder().mkdirs();
         this.saveResource(messagesFile.getName(), true);
+        this.saveResource("players.yml", false);
+        this.saveResource("uuid-cache.yml", false);
     }
 
     public static void main(String[] args) {
